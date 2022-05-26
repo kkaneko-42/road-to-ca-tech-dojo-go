@@ -29,9 +29,8 @@ func HandleUserGet(db *sql.DB) http.HandlerFunc {
 
 func getUserData(db *sql.DB, req *http.Request) (*userGetResponse, error) {
 	var user_data userGetResponse
-	ctx := req.Context()
 
-	user_data.Id = ctx.Value("user_id").(string)
+	user_data.Id = getUserIdFromContext(req)
 	err := db.QueryRow(
 		"SELECT user_name, having_coins, max_score " +
 		"FROM users_infos " +

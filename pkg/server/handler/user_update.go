@@ -23,12 +23,11 @@ func HandleUserUpdate(db *sql.DB) http.HandlerFunc {
 }
 
 func updateUser(db *sql.DB, req *http.Request) error {
-	ctx := req.Context()
 	name_after, err := getRequestBody(req)
 	if err != nil {
 		return err
 	}
-	user_id := ctx.Value("user_id")
+	user_id := getUserIdFromContext(req)
 
 	_, err = db.Exec(
 		"UPDATE users_infos " +

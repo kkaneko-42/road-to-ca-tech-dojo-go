@@ -25,3 +25,7 @@ func generateRandomString(length int) (string, error) {
 	}
 	return res, nil
 }
+
+func getUserIdFromContext(req *http.Request) string {
+	return (req.Context().Value("user_id").(string))
+}

@@ -3,7 +3,6 @@ package server
 import (
 	"log"
 	"net/http"
-
 	"42tokyo-road-to-dojo-go/pkg/server/handler"
 	"42tokyo-road-to-dojo-go/pkg/http/middleware"
 	"database/sql"
