@@ -41,7 +41,10 @@ func mappingURL(db *sql.DB) {
 	http.HandleFunc("/setting/get", get(handler.HandleSettingGet()))
 	http.HandleFunc("/user/create", post(handler.HandleUserCreate(db)))
 	http.HandleFunc("/user/get", get(middleware.Authenticate(handler.HandleUserGet(db))))
-	http.HandleFunc("/user/update", post(middleware.Authenticate(handler.HandleUserUpdate(db))))
+	http.HandleFunc("/user/update",
+					post(middleware.Authenticate(handler.HandleUserUpdate(db))))
+	http.HandleFunc("/collection/list",
+					get(middleware.Authenticate(handler.HandleCollectionListGet(db))))
 }
 
 // get GETリクエストを処理する
