@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"log"
 	"context"
 	"net/http"
@@ -23,40 +24,40 @@ func Authenticate(nextFunc http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// TODO: implement here
-		user_id := ConfirmToken(request)
-		if user_id == "" {
-			log.Print("Auth Failed\n")
+		user_id, err := ConfirmToken(request)
+		if err != nil {
+			log.Println("Auth Failed: ", err)
 			writer.WriteHeader(http.StatusInternalServerError)
 			return;
 		} else {
 			ctx = context.WithValue(ctx, "user_id", user_id)
 		}
-
+		log.Println("Auth successed")
 		nextFunc(writer, request.WithContext(ctx))
 	}
 }
 
-func ConfirmToken(req *http.Request) string {
+func ConfirmToken(req *http.Request) (string, error) {
 
 	/* db接続 */
 	db, err := sql.Open("mysql", "root:ca-tech-dojo@(127.0.0.1:3306)/road_to_ca")
 	if err != nil {
-		log.Fatal("DB connection failed: ", err)
-		return ""
+		return "", err
 	}
 	defer db.Close()
 
 	/* tokenの照合 */
-	token := req.URL.Query().Get("x-token")
+	token := req.Header.Get("X-token")
 	var user_id string
 
+	/* tokenで検索し、検索結果なしなら認証失敗 */
 	err = db.QueryRow("SELECT user_id FROM users_tokens WHERE token = ?;", token).Scan(&user_id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ""
+			return "", fmt.Errorf("User not found")
 		} else {
-			log.Fatal("DB Query Error: ", err)
+			return "", err
 		}
 	}
-	return user_id
+	return user_id, nil
 }

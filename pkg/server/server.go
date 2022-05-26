@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"42tokyo-road-to-dojo-go/pkg/server/handler"
+	"42tokyo-road-to-dojo-go/pkg/http/middleware"
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -21,8 +22,7 @@ func Serve(addr string) {
 	defer db.Close()
 
 	/* ===== URLマッピングを行う ===== */
-	http.HandleFunc("/setting/get", get(handler.HandleSettingGet()))
-	http.HandleFunc("/user/create", post(handler.HandleUserCreate(db)))
+	mappingURL(db)
 
 	// TODO: 認証を行うmiddlewareを実装する
 	// middlewareは pkg/http/middleware パッケージを利用する
@@ -35,6 +35,12 @@ func Serve(addr string) {
 	if err != nil {
 		log.Fatalf("Listen and serve failed. %+v", err)
 	}
+}
+
+func mappingURL(db *sql.DB) {
+	http.HandleFunc("/setting/get", get(handler.HandleSettingGet()))
+	http.HandleFunc("/user/create", post(handler.HandleUserCreate(db)))
+	http.HandleFunc("/user/get", get(middleware.Authenticate(handler.HandleUserGet(db))))
 }
 
 // get GETリクエストを処理する
