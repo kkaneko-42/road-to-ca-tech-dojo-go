@@ -14,8 +14,7 @@ func HandleUserUpdate(db *sql.DB) http.HandlerFunc {
 	return func (writer http.ResponseWriter, req *http.Request) {
 		err := updateUser(db, req)
 		if err != nil {
-			log.Println(err)
-			writer.WriteHeader(http.StatusInternalServerError)
+			putError(writer, err)
 			return
 		}
 

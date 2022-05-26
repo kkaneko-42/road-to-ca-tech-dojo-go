@@ -6,7 +6,6 @@ import (
 	"log"
 	"fmt"
 	"net/http"
-	"crypto/rand"
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -24,8 +23,7 @@ func HandleUserCreate(db *sql.DB) http.HandlerFunc {
 		token, err := postUserData(db, request);
 
 		if err != nil {
-			log.Print("User Creation Failed: ", err)
-			writer.WriteHeader(http.StatusInternalServerError)
+			putError(writer, err)
 			return;
 		}
 
@@ -33,8 +31,7 @@ func HandleUserCreate(db *sql.DB) http.HandlerFunc {
 			Token: token,
 		})
 		if err != nil {
-			log.Println(err)
-			writer.WriteHeader(http.StatusInternalServerError)
+			putError(writer, err)
 			return
 		}
 		log.Print("User Creation Successed")
@@ -97,21 +94,6 @@ func getUserName(req *http.Request) (string, error) {
 	}
 
 	return json_body.Name, nil
-}
-
-func generateRandomString(length int) (string, error) {
-	buf := make([]byte, length)
-	var res string
-
-	_, err := rand.Read(buf);
-	if err != nil {
-		return "", err
-	}
-
-	for _, v := range buf {
-		res += string(letters[int(v) % len(letters)])
-	}
-	return res, nil
 }
 
 type userCreateResponse struct {
