@@ -18,14 +18,14 @@ func HandleUserGet(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		data, err := json.Marshal(&user_data)
+		jsondata, err := json.Marshal(&user_data)
 		if err != nil {
 			log.Println(err)
 			writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		log.Print("User Get Successed")
-		writer.Write(data)
+		writer.Write(jsondata)
 	}
 }
 
