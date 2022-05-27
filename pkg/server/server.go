@@ -7,6 +7,7 @@ import (
 	"42tokyo-road-to-dojo-go/pkg/http/middleware"
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-redis/redis"
 )
 
 // Serve HTTPサーバを起動する
@@ -20,13 +21,19 @@ func Serve(addr string) {
 	}
 	defer db.Close()
 
-	/* ===== URLマッピングを行う ===== */
-	mappingURL(db)
+	/* ==== Master dataのキャッシュ ==== */
+	cli := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+		Password: "",
+		DB: 0,
+	})
+	err = cacheMasterData(db, cli)
+	if err != nil {
+		log.Fatal("Cache failed: ", err)
+	}
 
-	// TODO: 認証を行うmiddlewareを実装する
-	// middlewareは pkg/http/middleware パッケージを利用する
-	// http.HandleFunc("/user/get",
-	//   get(middleware.Authenticate(handler.HandleUserGet())))
+	/* ===== URLマッピングを行う ===== */
+	mappingURL(db, cli)
 
 	/* ===== サーバの起動 ===== */
 	log.Println("Server running...")
@@ -36,14 +43,53 @@ func Serve(addr string) {
 	}
 }
 
-func mappingURL(db *sql.DB) {
+func cacheMasterData(db *sql.DB, cli *redis.Client) error {
+	err := cacheItems(db, cli)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func cacheItems(db *sql.DB, cli *redis.Client) error {
+	const nb_params int = 4
+	var column [nb_params]string
+	rows, err := db.Query("SELECT * FROM items;")
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		err = rows.Scan(
+			&column[0],
+			&column[1],
+			&column[2],
+			&column[3],
+		)
+		if err != nil {
+			return err
+		}
+
+		err := cli.RPush(column[0], column[1:nb_params]).Err()
+		if err != nil {
+			return err
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func mappingURL(db *sql.DB, cli *redis.Client) {
 	http.HandleFunc("/setting/get", get(handler.HandleSettingGet()))
 	http.HandleFunc("/user/create", post(handler.HandleUserCreate(db)))
-	http.HandleFunc("/user/get", get(middleware.Authenticate(handler.HandleUserGet(db))))
+	http.HandleFunc("/user/get",
+		get(middleware.Authenticate(handler.HandleUserGet(db))))
 	http.HandleFunc("/user/update",
-					post(middleware.Authenticate(handler.HandleUserUpdate(db))))
+		post(middleware.Authenticate(handler.HandleUserUpdate(db))))
 	http.HandleFunc("/collection/list",
-					get(middleware.Authenticate(handler.HandleCollectionListGet(db))))
+		get(middleware.Authenticate(handler.HandleCollectionListGet(db, cli))))
 }
 
 // get GETリクエストを処理する

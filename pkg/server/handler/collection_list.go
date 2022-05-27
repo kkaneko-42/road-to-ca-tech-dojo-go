@@ -4,18 +4,20 @@ import (
 	"net/http"
 	"encoding/json"
 	"database/sql"
+	"strconv"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-redis/redis"
 )
 
-func HandleCollectionListGet(db *sql.DB) http.HandlerFunc {
+func HandleCollectionListGet(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	return func (writer http.ResponseWriter, req *http.Request) {
-		items, err := getCollections(db, req)
+		res, err := createResponce(db, cli, req)
 		if err != nil {
 			putError(writer, err)
 			return
 		}
 
-		jsondata, err := json.Marshal(&items)
+		jsondata, err := json.Marshal(&res)
 		if err != nil {
 			putError(writer, err)
 			return
@@ -24,59 +26,94 @@ func HandleCollectionListGet(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func getCollections(db *sql.DB, req *http.Request) (*CollectionListGetResponce, error) {
-	rows, err := db.Query(
-		"SELECT item_id, item_name, rarity, user_id FROM items " + 
-		"LEFT OUTER JOIN users_inventories " +
-		"USING (item_id);")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	items, err := parseDBReturn(rows, req)
-	if err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-func parseDBReturn (rows *sql.Rows, req *http.Request) (*CollectionListGetResponce, error) {
-	var res CollectionListGetResponce
-	var row returnedRow
+func createResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*CollectionListGetResponce, error) {
 	user_id := getUserIdFromContext(req)
 
-	for rows.Next() {
-		err := rows.Scan(
-			&row.item_id,
-			&row.item_name,
-			&row.rarity,
-			&row.having_user_id)
+	res, err := getAllItems(cli)
+	if err != nil {
+		return nil, err
+	}
+
+	err = setItemHaving(res, user_id, db)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func getAllItems(cli *redis.Client) (*CollectionListGetResponce, error) {
+	const nb_params int = 4
+	var (
+		items []Item
+		buf []string
+		rarity int
+	)
+
+	// get all keys in redis db
+	keys, err := cli.Keys("*").Result()
+	if err != nil {
+		return nil, err
+	}
+
+	// get values and set into the struct
+	for _, key := range keys {
+		buf, err = cli.LRange(key, 0, -1).Result()
 		if err != nil {
 			return nil, err
 		}
 
-		res.Collections = append(res.Collections, &Item{
-			CollectionId: row.item_id,
-			Name: row.item_name,
-			Rarity: row.rarity,
-			HasItem: checkItemHaving(&row.having_user_id, user_id),
+		rarity, _ = strconv.Atoi(buf[1])
+		items = append(items, Item{
+			CollectionId: key,
+			Name: buf[0],
+			Rarity: rarity,
+			HasItem: false,
 		})
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return &res, nil
+	return &CollectionListGetResponce{Collections: items}, nil
 }
 
-func checkItemHaving (having_user_id *sql.NullString, user_id string) bool {
-
-	if having_user_id.Valid && having_user_id.String == user_id {
-		return true
-	} else {
-		return false
+func setItemHaving(res *CollectionListGetResponce, user_id string, db *sql.DB) error {
+	inventories, err := getUserInventories(db, user_id)
+	if err != nil {
+		return err
 	}
+
+	for i, item := range res.Collections {
+		if strcontains(inventories, item.CollectionId) {
+			res.Collections[i].HasItem = true
+		}
+	}
+	return nil
+}
+
+func getUserInventories(db *sql.DB, user_id string) (*[]string, error) {
+	var (
+		inventories []string
+		buf string
+	)
+
+	rows, err := db.Query(
+		"SELECT item_id FROM users_inventories " + 
+		"WHERE user_id = ?;", user_id)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&buf)
+		if err != nil {
+			return nil, err
+		}
+		inventories = append(inventories, buf)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return &inventories, nil
 }
 
 type Item struct {
@@ -86,13 +123,6 @@ type Item struct {
 	HasItem bool `json:"hasItem"`
 }
 
-type returnedRow struct {
-	item_id string
-	item_name string
-	rarity int
-	having_user_id sql.NullString
-}
-
 type CollectionListGetResponce struct {
-	Collections []*Item `json:"collections"`
+	Collections []Item `json:"collections"`
 }
