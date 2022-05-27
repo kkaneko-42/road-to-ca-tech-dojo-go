@@ -60,7 +60,7 @@ func mappingURL(db *sql.DB, cli *redis.Client) {
 	http.HandleFunc("/setting/get", get(handler.HandleSettingGet()))
 	http.HandleFunc("/user/create", post(handler.HandleUserCreate(db)))
 	http.HandleFunc("/user/get",
-		get(middleware.Authenticate(handler.HandleUserGet(db))))
+		get(middleware.Authenticate(handler.HandleUserGet(db, cli))))
 	http.HandleFunc("/user/update",
 		post(middleware.Authenticate(handler.HandleUserUpdate(db))))
 	http.HandleFunc("/collection/list",

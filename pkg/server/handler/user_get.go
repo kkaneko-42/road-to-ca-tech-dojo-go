@@ -4,14 +4,16 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"github.com/go-redis/redis"
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
+	"42tokyo-road-to-dojo-go/pkg/server/cache"
 )
 
 // HandleUserGet ユーザー情報の取得
-func HandleUserGet(db *sql.DB) http.HandlerFunc {
+func HandleUserGet(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		user_data, err := getUserData(db, request)
+		user_data, err := getUserData(db, cli, request)
 		if err != nil {
 			putError(writer, err)
 			return
@@ -27,31 +29,24 @@ func HandleUserGet(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func getUserData(db *sql.DB, req *http.Request) (*userGetResponse, error) {
-	var (
-		user_data userGetResponse
-		highscore_buf sql.NullInt64
-	)
+func getUserData(db *sql.DB, cli *redis.Client, req *http.Request) (*userGetResponse, error) {
+	var user_data userGetResponse
 
 	user_data.Id = getUserIdFromContext(req)
 	log.Println(user_data.Id)
 	err := db.QueryRow(
-		"SELECT user_name, having_coins, max_score " +
-		"FROM users_infos " +
-		"LEFT OUTER JOIN (" +
-			"SELECT user_id, MAX(score) AS max_score FROM scores " +
-			"GROUP BY (user_id)) " +
-		"AS max_scores " +
-		"USING (user_id) " + 
-		"WHERE user_id = ?;", user_data.Id).Scan(
+		"SELECT user_name, having_coins FROM users_infos;").Scan(
 			&(user_data.Name),
-			&(user_data.HavingCoins),
-			&(highscore_buf))
+			&(user_data.HavingCoins))
 	if err != nil {
 		return nil, err
 	}
 
-	user_data.HighScore = int(highscore_buf.Int64)
+	user_data.HighScore, err = cache.GetUserHighScore(user_data.Id, cli)
+	if err != nil {
+		return nil, err
+	}
+
 	return &user_data, nil
 }
 
