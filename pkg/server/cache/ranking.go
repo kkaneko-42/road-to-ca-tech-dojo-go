@@ -7,9 +7,15 @@ import (
 
 const (
 	ranking_key string = "ranking"
+	redis_nil_err string = "redis: nil"
 )
 
 func PushScore(user_id string, score int, cli *redis.Client) error {
+	prev_score_z := cli.ZScore(ranking_key, user_id)
+
+	if prev_score_z != nil && int(prev_score_z.Val()) >= score {
+		return nil
+	}
 	err := cli.ZAdd(ranking_key, redis.Z{
 			Score: float64(score),
 			Member: user_id,
@@ -24,7 +30,11 @@ func PushScore(user_id string, score int, cli *redis.Client) error {
 func GetUserHighScore(user_id string, cli *redis.Client) (int, error) {
 	high_score, err := cli.ZScore(ranking_key, user_id).Result()
 	if err != nil {
-		return 0, err
+		if fmt.Sprintf("%s", err) == redis_nil_err {
+			return 0, nil
+		} else {
+			return 0, err
+		}
 	}
 
 	return int(high_score), nil
