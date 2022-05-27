@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"42tokyo-road-to-dojo-go/pkg/server/handler"
+	"42tokyo-road-to-dojo-go/pkg/server/cache"
 	"42tokyo-road-to-dojo-go/pkg/http/middleware"
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
@@ -27,6 +28,8 @@ func Serve(addr string) {
 		Password: "",
 		DB: 0,
 	})
+	cli.FlushDB()
+
 	err = cacheMasterData(db, cli)
 	if err != nil {
 		log.Fatal("Cache failed: ", err)
@@ -44,38 +47,8 @@ func Serve(addr string) {
 }
 
 func cacheMasterData(db *sql.DB, cli *redis.Client) error {
-	err := cacheItems(db, cli)
+	err := cache.CacheItems(db, cli)
 	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func cacheItems(db *sql.DB, cli *redis.Client) error {
-	const nb_params int = 4
-	var column [nb_params]string
-	rows, err := db.Query("SELECT * FROM items;")
-	if err != nil {
-		return err
-	}
-
-	for rows.Next() {
-		err = rows.Scan(
-			&column[0],
-			&column[1],
-			&column[2],
-			&column[3],
-		)
-		if err != nil {
-			return err
-		}
-
-		err := cli.RPush(column[0], column[1:nb_params]).Err()
-		if err != nil {
-			return err
-		}
-	}
-	if err = rows.Err(); err != nil {
 		return err
 	}
 	return nil

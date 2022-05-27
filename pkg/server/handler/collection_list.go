@@ -1,12 +1,13 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"encoding/json"
 	"database/sql"
-	"strconv"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-redis/redis"
+	"42tokyo-road-to-dojo-go/pkg/server/cache"
 )
 
 func HandleCollectionListGet(db *sql.DB, cli *redis.Client) http.HandlerFunc {
@@ -29,66 +30,51 @@ func HandleCollectionListGet(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 func createResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*CollectionListGetResponce, error) {
 	user_id := getUserIdFromContext(req)
 
-	res, err := getAllItems(cli)
+	items, err := cache.GetItems(cli)
 	if err != nil {
 		return nil, err
 	}
 
-	err = setItemHaving(res, user_id, db)
+	responce, err := setItemHaving(items, user_id, db)
 	if err != nil {
 		return nil, err
 	}
-	return res, nil
+	return responce, nil
 }
 
-func getAllItems(cli *redis.Client) (*CollectionListGetResponce, error) {
-	const nb_params int = 4
+func setItemHaving(items *[]cache.ItemData, user_id string, db *sql.DB) (*CollectionListGetResponce, error) {
 	var (
-		items []Item
-		buf []string
-		rarity int
+		res CollectionListGetResponce
+		item cache.ItemData
+		has_item bool
 	)
 
-	// get all keys in redis db
-	keys, err := cli.Keys("*").Result()
+	inventories, err := getUserInventories(db, user_id)
 	if err != nil {
 		return nil, err
 	}
 
-	// get values and set into the struct
-	for _, key := range keys {
-		buf, err = cli.LRange(key, 0, -1).Result()
-		if err != nil {
-			return nil, err
+	log.Println(*items)
+	for i, _ := range *items {
+		item = (*items)[i]
+		if strcontains(inventories, item.Id) {
+			has_item = true
+		} else {
+			has_item = false
 		}
 
-		rarity, _ = strconv.Atoi(buf[1])
-		items = append(items, Item{
-			CollectionId: key,
-			Name: buf[0],
-			Rarity: rarity,
-			HasItem: false,
+		res.Collections = append(res.Collections, &Item{
+			CollectionId: item.Id,
+			Name: item.Name,
+			Rarity: item.Rarity,
+			HasItem: has_item,
 		})
 	}
 
-	return &CollectionListGetResponce{Collections: items}, nil
+	return &res, nil
 }
 
-func setItemHaving(res *CollectionListGetResponce, user_id string, db *sql.DB) error {
-	inventories, err := getUserInventories(db, user_id)
-	if err != nil {
-		return err
-	}
-
-	for i, item := range res.Collections {
-		if strcontains(inventories, item.CollectionId) {
-			res.Collections[i].HasItem = true
-		}
-	}
-	return nil
-}
-
-func getUserInventories(db *sql.DB, user_id string) (*[]string, error) {
+func getUserInventories(db *sql.DB, user_id string) ([]string, error) {
 	var (
 		inventories []string
 		buf string
@@ -108,12 +94,11 @@ func getUserInventories(db *sql.DB, user_id string) (*[]string, error) {
 		}
 		inventories = append(inventories, buf)
 	}
-	err = rows.Err()
-	if err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return &inventories, nil
+	return inventories, nil
 }
 
 type Item struct {
@@ -124,5 +109,5 @@ type Item struct {
 }
 
 type CollectionListGetResponce struct {
-	Collections []Item `json:"collections"`
+	Collections []*Item `json:"collections"`
 }

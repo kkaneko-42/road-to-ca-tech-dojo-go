@@ -30,8 +30,8 @@ func getUserIdFromContext(req *http.Request) string {
 	return (req.Context().Value("user_id").(string))
 }
 
-func strcontains(arr *[]string, str string) bool {
-	for _, v := range *arr {
+func strcontains(arr []string, str string) bool {
+	for _, v := range arr {
 		if v == str {
 			return true
 		}
