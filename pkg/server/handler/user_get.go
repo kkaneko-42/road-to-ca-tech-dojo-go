@@ -8,7 +8,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-// HandleUserCreate 新しいユーザーの追加
+// HandleUserGet ユーザー情報の取得
 func HandleUserGet(db *sql.DB) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		user_data, err := getUserData(db, request)
@@ -28,24 +28,30 @@ func HandleUserGet(db *sql.DB) http.HandlerFunc {
 }
 
 func getUserData(db *sql.DB, req *http.Request) (*userGetResponse, error) {
-	var user_data userGetResponse
+	var (
+		user_data userGetResponse
+		highscore_buf sql.NullInt64
+	)
 
 	user_data.Id = getUserIdFromContext(req)
+	log.Println(user_data.Id)
 	err := db.QueryRow(
 		"SELECT user_name, having_coins, max_score " +
 		"FROM users_infos " +
-		"INNER JOIN (" +
+		"LEFT OUTER JOIN (" +
 			"SELECT user_id, MAX(score) AS max_score FROM scores " +
 			"GROUP BY (user_id)) " +
 		"AS max_scores " +
 		"USING (user_id) " + 
-		"WHERE user_id = ?", user_data.Id).Scan(
+		"WHERE user_id = ?;", user_data.Id).Scan(
 			&(user_data.Name),
 			&(user_data.HavingCoins),
-			&(user_data.HighScore))
+			&(highscore_buf))
 	if err != nil {
 		return nil, err
 	}
+
+	user_data.HighScore = int(highscore_buf.Int64)
 	return &user_data, nil
 }
 

@@ -29,6 +29,7 @@ func updateUser(db *sql.DB, req *http.Request) error {
 	}
 	user_id := getUserIdFromContext(req)
 
+	log.Println(user_id)
 	_, err = db.Exec(
 		"UPDATE users_infos " +
 		"SET user_name = ? " +
