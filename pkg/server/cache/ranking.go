@@ -10,7 +10,10 @@ const (
 )
 
 func PushScore(user_id string, score int, cli *redis.Client) error {
-	err := cli.ZAdd(ranking_key, redis.Z{float64(score), user_id}).Err()
+	err := cli.ZAdd(ranking_key, redis.Z{
+			Score: float64(score),
+			Member: user_id,
+		}).Err()
 	if err != nil {
 		return err
 	}
@@ -27,22 +30,21 @@ func GetUserHighScore(user_id string, cli *redis.Client) (int, error) {
 	return int(high_score), nil
 }
 
-func GetRanking(start, end int64, cli *redis.Client) (*[]RankData, error) {
-	var ranking []RankData
+func GetRanking(start, end int64, cli *redis.Client) (map[string]RankData, error) {
+	var ranking map[string]RankData = map[string]RankData{}
 
-	ranked_users := cli.ZRangeWithScores(ranking_key, start, end).Val()
+	ranked_users := cli.ZRangeWithScores(ranking_key, start - 1, end - 1).Val()
 	if isEmpty(ranked_users) {
 		return nil, fmt.Errorf("Ranking is empty")
 	}
 
 	for i, user := range ranked_users {
-		ranking = append(ranking, RankData{
-			UserId: user.Member.(string),
+		ranking[user.Member.(string)] = RankData{
 			Score: int(user.Score),
 			Rank: i + 1,
-		})
+		}
 	}
-	return &ranking, nil
+	return ranking, nil
 }
 
 func isEmpty(ranking []redis.Z) bool {
@@ -53,7 +55,6 @@ func isEmpty(ranking []redis.Z) bool {
 }
 
 type RankData struct {
-	UserId string
 	Score int
 	Rank int
 }

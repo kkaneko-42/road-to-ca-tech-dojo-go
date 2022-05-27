@@ -34,6 +34,8 @@ func Serve(addr string) {
 	if err != nil {
 		log.Fatal("Cache failed: ", err)
 	}
+	/* for debug */
+	cache.PushScore("wyNzSIgz", 100, cli)
 
 	/* ===== URLマッピングを行う ===== */
 	mappingURL(db, cli)
@@ -63,6 +65,8 @@ func mappingURL(db *sql.DB, cli *redis.Client) {
 		post(middleware.Authenticate(handler.HandleUserUpdate(db))))
 	http.HandleFunc("/collection/list",
 		get(middleware.Authenticate(handler.HandleCollectionListGet(db, cli))))
+	http.HandleFunc("/ranking/list",
+		get(middleware.Authenticate(handler.HandleRankingGet(db, cli))))
 }
 
 // get GETリクエストを処理する

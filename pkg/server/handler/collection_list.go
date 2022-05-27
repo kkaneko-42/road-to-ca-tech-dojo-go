@@ -12,7 +12,7 @@ import (
 
 func HandleCollectionListGet(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	return func (writer http.ResponseWriter, req *http.Request) {
-		res, err := createResponce(db, cli, req)
+		res, err := createCollectionGetResponce(db, cli, req)
 		if err != nil {
 			putError(writer, err)
 			return
@@ -27,7 +27,7 @@ func HandleCollectionListGet(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	}
 }
 
-func createResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*CollectionListGetResponce, error) {
+func createCollectionGetResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*CollectionListGetResponce, error) {
 	user_id := getUserIdFromContext(req)
 
 	items, err := cache.GetItems(cli)
