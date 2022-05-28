@@ -131,7 +131,8 @@ func postGachaResults(db *sql.DB, user_id string, results *[]gotItem) error {
 	_, err = db.Exec(
 		"UPDATE users_infos " +
 		"SET having_coins = having_coins - ? " +
-		"WHERE user_id = ?;", gacha_cost * int32(len(*results)))
+		"WHERE user_id = ?;",
+		gacha_cost * int32(len(*results)), user_id)
 	if err != nil {
 		db.Exec("ROLLBACK")
 		return err
@@ -170,7 +171,7 @@ func createInsertResultQuery(user_id string, results *[]gotItem) string {
 	db_query := "INSERT INTO users_inventories (user_id, item_id) "
 
 	for i := 0; i < len(*results); i++ {
-		db_query += fmt.Sprintf("VALUES (%s, %s)", user_id, (*results)[i].CollectionId)
+		db_query += fmt.Sprintf("VALUES (\"%s\", \"%s\")", user_id, (*results)[i].CollectionId)
 		if i != len(*results) - 1 {
 			db_query += ", "
 		} else {
