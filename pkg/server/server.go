@@ -69,6 +69,8 @@ func mappingURL(db *sql.DB, cli *redis.Client) {
 		get(middleware.Authenticate(handler.HandleRankingGet(db, cli))))
 	http.HandleFunc("/game/finish",
 		post(middleware.Authenticate(handler.HandleGameFinish(db, cli))))
+	http.HandleFunc("/gacha/draw",
+		post(middleware.Authenticate(handler.HandleGachaDraw(db, cli))))
 }
 
 // get GETリクエストを処理する

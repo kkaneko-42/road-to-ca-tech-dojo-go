@@ -28,7 +28,7 @@ func HandleGameFinish(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	}
 }
 
-func createGameFinishResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*GameFinishResponce, error) {
+func createGameFinishResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*gameFinishResponce, error) {
 	req_body, err := parseGameFinishRequest(req)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func createGameFinishResponce(db *sql.DB, cli *redis.Client, req *http.Request) 
 	if err != nil {
 		return nil, err
 	}
-	return &GameFinishResponce{Coin: reward}, nil
+	return &gameFinishResponce{Coin: reward}, nil
 }
 
 func parseGameFinishRequest(req *http.Request) (*gameFinishRequest, error){
@@ -95,6 +95,6 @@ type gameFinishRequest struct {
 	Score int
 }
 
-type GameFinishResponce struct {
+type gameFinishResponce struct {
 	Coin int `json:"coin"`
 }
