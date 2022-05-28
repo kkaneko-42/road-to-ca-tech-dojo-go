@@ -3,6 +3,7 @@ package handler
 import (
 	"io"
 	"fmt"
+	"log"
 	"encoding/json"
 	"net/http"
 	"math/rand"
@@ -12,12 +13,20 @@ import (
 	"42tokyo-road-to-dojo-go/pkg/server/cache"
 )
 
+const lack_coins_msg string = "Lack coins error"
+
 func HandleGachaDraw(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	return func (w http.ResponseWriter, req *http.Request) {
 		res, err := createGachaDrawResponce(db, cli, req)
 		if err != nil {
-			putError(w, err)
-			return
+			if fmt.Sprintf("%s", err) == lack_coins_msg {
+				log.Println(err)
+				results := make([]gotItem, 0)
+				res = &gachaDrawResponce{Results: &results}
+			} else {
+				putError(w, err)
+				return
+			}
 		}
 
 		jsondata, err := json.Marshal(res)
@@ -30,7 +39,7 @@ func HandleGachaDraw(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 }
 
 func createGachaDrawResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*gachaDrawResponce, error) {
-	parsed_req, err := parseGachaDrawRequest(req)
+	parsed_req, err := parseGachaDrawRequest(db, req)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +57,7 @@ func createGachaDrawResponce(db *sql.DB, cli *redis.Client, req *http.Request) (
 	return &gachaDrawResponce{Results: results}, nil
 }
 
-func parseGachaDrawRequest(req *http.Request) (*gachaDrawRequest, error) {
+func parseGachaDrawRequest(db *sql.DB, req *http.Request) (*gachaDrawRequest, error) {
 	var parsed_body gachaDrawRequest
 
 	jsonbody, err := io.ReadAll(req.Body)
@@ -62,7 +71,34 @@ func parseGachaDrawRequest(req *http.Request) (*gachaDrawRequest, error) {
 	}
 	parsed_body.UserId = getUserIdFromContext(req)
 
+	if err = validateRequest(db, &parsed_body); err != nil {
+		return nil, err
+	}
+
 	return &parsed_body, nil
+}
+
+func validateRequest(db *sql.DB, req *gachaDrawRequest) error {
+	var having_coins int32
+
+	err := db.QueryRow(
+		"SELECT having_coins FROM users_infos " +
+		"WHERE user_id = ?;",
+		req.UserId).Scan(&having_coins)
+	if err != nil {
+		return err
+	}
+
+	gacha_cost, err := getGachaCost()
+	if err != nil {
+		return err
+	}
+
+	if having_coins - (gacha_cost * int32(req.Times)) < 0 {
+		return fmt.Errorf(lack_coins_msg)
+	}
+
+	return nil
 }
 
 func execGachaDraw(db *sql.DB, cli *redis.Client, req *gachaDrawRequest) (*[]gotItem, error) {
@@ -90,6 +126,7 @@ func execGachaDraw(db *sql.DB, cli *redis.Client, req *gachaDrawRequest) (*[]got
 		if err != nil {
 			return nil, err
 		}
+
 		results = append(results, gotItem{
 			CollectionId: result.Id,
 			Name: result.Name,
@@ -181,6 +218,8 @@ func createInsertResultQuery(user_id string, results *[]gotItem) string {
 	
 	return db_query
 }
+
+type lackCoinsError error
 
 type gachaDrawRequest struct {
 	UserId string
