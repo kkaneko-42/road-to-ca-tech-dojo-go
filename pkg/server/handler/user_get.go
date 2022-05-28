@@ -33,9 +33,9 @@ func getUserData(db *sql.DB, cli *redis.Client, req *http.Request) (*userGetResp
 	var user_data userGetResponse
 
 	user_data.Id = getUserIdFromContext(req)
-	log.Println(user_data.Id)
 	err := db.QueryRow(
-		"SELECT user_name, having_coins FROM users_infos;").Scan(
+		"SELECT user_name, having_coins FROM users_infos " +
+		"WHERE user_id = ?;", user_data.Id).Scan(
 			&(user_data.Name),
 			&(user_data.HavingCoins))
 	if err != nil {
