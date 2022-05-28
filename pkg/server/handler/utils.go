@@ -8,9 +8,9 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func putError(w http.ResponseWriter, err error) {
+func putError(w http.ResponseWriter, err error, http_status int) {
 	log.Println(err)
-	w.WriteHeader(http.StatusInternalServerError)
+	w.WriteHeader(http_status)
 }
 
 func generateRandomString(length int) (string, error) {

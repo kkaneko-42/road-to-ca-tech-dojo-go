@@ -20,10 +20,10 @@ const (
 // HandleUserCreate 新しいユーザーの追加
 func HandleUserCreate(db *sql.DB) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		token, err := postUserData(db, request);
+		token, err, status := postUserData(db, request);
 
 		if err != nil {
-			putError(writer, err)
+			putError(writer, err, status)
 			return;
 		}
 
@@ -31,7 +31,7 @@ func HandleUserCreate(db *sql.DB) http.HandlerFunc {
 			Token: token,
 		})
 		if err != nil {
-			putError(writer, err)
+			putError(writer, err, http.StatusInternalServerError)
 			return
 		}
 		log.Print("User Creation Successed")
@@ -39,40 +39,40 @@ func HandleUserCreate(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func postUserData(db *sql.DB, req *http.Request) (string, error) {
+func postUserData(db *sql.DB, req *http.Request) (string, error, int) {
 	user, err := createUserData(req)
 	if err != nil {
-		return "", err
+		return "", err, http.StatusInternalServerError
 	}
 	if len(string(user.name)) > max_name_len {
 		log.Print("Name is too long")
-		return "", fmt.Errorf("Name is too long")
+		return "", fmt.Errorf("Name is too long"), http.StatusBadRequest
 	}
 
 	_, err = db.Exec("INSERT INTO users_tokens VALUES (?, ?)", user.id, user.token)
 	if err != nil {
-		return "", err
+		return "", err, http.StatusInternalServerError
 	}
 	_, err = db.Exec("INSERT INTO users_infos VALUES (?, ?, 0)", user.id, user.name)
 	if err != nil {
-		return "", err
+		return "", err, http.StatusInternalServerError
 	}
 
-	return user.token, nil
+	return user.token, nil, http.StatusOK
 }
 
 func createUserData(req *http.Request) (*userData, error) {
-	id, err_id := generateRandomString(id_len)
-	if err_id != nil {
-		return nil, err_id
+	id, err := generateRandomString(id_len)
+	if err != nil {
+		return nil, err
 	}
-	name, err_name := getUserName(req)
-	if err_name != nil {
-		return nil, err_name
+	name, err := getUserName(req)
+	if err != nil {
+		return nil, err
 	}
-	token, err_token := generateRandomString(token_len)
-	if err_token != nil {
-		return nil, err_token
+	token, err := generateRandomString(token_len)
+	if err != nil {
+		return nil, err
 	}
 
 	return &userData{

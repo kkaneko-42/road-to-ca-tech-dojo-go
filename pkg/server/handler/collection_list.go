@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 	"encoding/json"
 	"database/sql"
@@ -14,13 +13,13 @@ func HandleCollectionListGet(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	return func (writer http.ResponseWriter, req *http.Request) {
 		res, err := createCollectionGetResponce(db, cli, req)
 		if err != nil {
-			putError(writer, err)
+			putError(writer, err, http.StatusInternalServerError)
 			return
 		}
 
 		jsondata, err := json.Marshal(&res)
 		if err != nil {
-			putError(writer, err)
+			putError(writer, err, http.StatusInternalServerError)
 			return
 		}
 		writer.Write(jsondata)
@@ -54,7 +53,6 @@ func setItemHaving(items *[]cache.ItemData, user_id string, db *sql.DB) (*collec
 		return nil, err
 	}
 
-	log.Println(*items)
 	for i, _ := range *items {
 		item = (*items)[i]
 		if strcontains(inventories, item.Id) {

@@ -13,32 +13,32 @@ import (
 
 func HandleGameFinish(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	return func (w http.ResponseWriter, req *http.Request) {
-		res, err := createGameFinishResponce(db, cli, req)
+		res, err, status := createGameFinishResponce(db, cli, req)
 		if err != nil {
-			putError(w, err)
+			putError(w, err, status)
 			return
 		}
 
 		jsondata, err := json.Marshal(res)
 		if err != nil {
-			putError(w, err)
+			putError(w, err, http.StatusInternalServerError)
 			return
 		}
 		w.Write(jsondata)
 	}
 }
 
-func createGameFinishResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*gameFinishResponce, error) {
+func createGameFinishResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*gameFinishResponce, error, int) {
 	req_body, err := parseGameFinishRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, err, http.StatusBadRequest
 	}
 
 	reward, err := postGameFinish(db, cli, req_body)
 	if err != nil {
-		return nil, err
+		return nil, err, http.StatusInternalServerError
 	}
-	return &gameFinishResponce{Coin: reward}, nil
+	return &gameFinishResponce{Coin: reward}, nil, http.StatusOK
 }
 
 func parseGameFinishRequest(req *http.Request) (*gameFinishRequest, error){

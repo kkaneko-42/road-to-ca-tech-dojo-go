@@ -27,7 +27,7 @@ func Authenticate(nextFunc http.HandlerFunc) http.HandlerFunc {
 		user_id, err := ConfirmToken(request)
 		if err != nil {
 			log.Println("Auth Failed: ", err)
-			writer.WriteHeader(http.StatusInternalServerError)
+			writer.WriteHeader(http.StatusUnauthorized)
 			return;
 		} else {
 			ctx = context.WithValue(ctx, "user_id", user_id)

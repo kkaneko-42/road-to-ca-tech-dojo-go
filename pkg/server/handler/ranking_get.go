@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"log"
 	"fmt"
 	"strings"
 	"strconv"
@@ -20,42 +19,43 @@ const (
 
 func HandleRankingGet(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	return func (w http.ResponseWriter, req *http.Request) {
-		res, err := createRankingGetResponce(db, cli, req)
+		res, err, status := createRankingGetResponce(db, cli, req)
 		if err != nil {
-			putError(w, err)
+			putError(w, err, status)
 			return
 		}
 
 		jsondata, err := json.Marshal(res)
 		if err != nil {
-			putError(w, err)
+			putError(w, err, http.StatusInternalServerError)
 			return
 		}
 		w.Write(jsondata)
 	}
 }
 
-func createRankingGetResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*RankingGetResponce, error) {
+func createRankingGetResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*RankingGetResponce, error, int) {
 	rank_begin, err := getRankBegin(req)
 	if err != nil {
-		return nil, err
+		return nil, err, http.StatusBadRequest
 	}
 	rank_end := rank_begin + nb_get_once - 1
 
 	ranking, err := cache.GetRanking(rank_begin, rank_end, cli)
 	if err != nil {
-		log.Println(err)
+		return nil, err, http.StatusInternalServerError
+	} else if len(ranking) == 0 {
 		return &RankingGetResponce{
 			Ranks: make([]*UserRankData, 0),
-		}, nil
+		}, nil, http.StatusNoContent
 	}
 
 	responce, err := setUserName(ranking, db)
 	if err != nil {
-		return nil, err
+		return nil, err, http.StatusInternalServerError
 	}
 
-	return responce, nil
+	return responce, nil, http.StatusOK
 }
 
 func getRankBegin(req *http.Request) (int64, error) {

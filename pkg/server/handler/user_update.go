@@ -2,6 +2,7 @@ package handler
 
 import (
 	"io"
+	"fmt"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -12,9 +13,9 @@ import (
 // HandleUserUpdate ユーザー情報のupdate
 func HandleUserUpdate(db *sql.DB) http.HandlerFunc {
 	return func (writer http.ResponseWriter, req *http.Request) {
-		err := updateUser(db, req)
+		err, status := updateUser(db, req)
 		if err != nil {
-			putError(writer, err)
+			putError(writer, err, status)
 			return
 		}
 
@@ -22,22 +23,24 @@ func HandleUserUpdate(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func updateUser(db *sql.DB, req *http.Request) error {
+func updateUser(db *sql.DB, req *http.Request) (error, int) {
 	name_after, err := getRequestBody(req)
 	if err != nil {
-		return err
+		return err, http.StatusInternalServerError
+	} else if len(name_after) > max_name_len {
+		return fmt.Errorf("Name is too long"), http.StatusBadRequest
 	}
 	user_id := getUserIdFromContext(req)
 
-	log.Println(user_id)
 	_, err = db.Exec(
 		"UPDATE users_infos " +
 		"SET user_name = ? " +
 		"WHERE user_id = ?", name_after, user_id)
 	if err != nil {
-		return err
+		return err, http.StatusInternalServerError
 	}
-	return nil
+
+	return nil, http.StatusOK
 }
 
 func getRequestBody(req *http.Request) (string, error) {

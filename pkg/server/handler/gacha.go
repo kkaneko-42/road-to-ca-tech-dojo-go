@@ -3,7 +3,7 @@ package handler
 import (
 	"io"
 	"fmt"
-	"log"
+	"time"
 	"encoding/json"
 	"net/http"
 	"math/rand"
@@ -13,48 +13,45 @@ import (
 	"42tokyo-road-to-dojo-go/pkg/server/cache"
 )
 
-const lack_coins_msg string = "Lack coins error"
+const (
+	lack_coins_msg string = "Lack coins error"
+	max_times int = 100
+)
 
 func HandleGachaDraw(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	return func (w http.ResponseWriter, req *http.Request) {
-		res, err := createGachaDrawResponce(db, cli, req)
+		res, err, status := createGachaDrawResponce(db, cli, req)
 		if err != nil {
-			if fmt.Sprintf("%s", err) == lack_coins_msg {
-				log.Println(err)
-				results := make([]gotItem, 0)
-				res = &gachaDrawResponce{Results: &results}
-			} else {
-				putError(w, err)
+				putError(w, err, status)
 				return
 			}
-		}
 
 		jsondata, err := json.Marshal(res)
 		if err != nil {
-			putError(w, err)
+			putError(w, err, http.StatusInternalServerError)
 			return
 		}
 		w.Write(jsondata)
 	}
 }
 
-func createGachaDrawResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*gachaDrawResponce, error) {
+func createGachaDrawResponce(db *sql.DB, cli *redis.Client, req *http.Request) (*gachaDrawResponce, error, int) {
 	parsed_req, err := parseGachaDrawRequest(db, req)
 	if err != nil {
-		return nil, err
+		return nil, err, http.StatusBadRequest
 	}
 
 	results, err := execGachaDraw(db, cli, parsed_req)
 	if err != nil {
-		return nil, err
+		return nil, err, http.StatusInternalServerError
 	}
 
 	err = postGachaResults(db, parsed_req.UserId, results)
 	if err != nil {
-		return nil, err
+		return nil, err, http.StatusInternalServerError
 	}
 
-	return &gachaDrawResponce{Results: results}, nil
+	return &gachaDrawResponce{Results: results}, nil, http.StatusOK
 }
 
 func parseGachaDrawRequest(db *sql.DB, req *http.Request) (*gachaDrawRequest, error) {
@@ -80,6 +77,10 @@ func parseGachaDrawRequest(db *sql.DB, req *http.Request) (*gachaDrawRequest, er
 
 func validateRequest(db *sql.DB, req *gachaDrawRequest) error {
 	var having_coins int32
+
+	if req.Times < 1 || req.Times > max_times {
+		return fmt.Errorf("Invalid times")
+	}
 
 	err := db.QueryRow(
 		"SELECT having_coins FROM users_infos " +
@@ -121,6 +122,7 @@ func execGachaDraw(db *sql.DB, cli *redis.Client, req *gachaDrawRequest) (*[]got
 	}
 
 	for i := 0; i < req.Times; i++ {
+		rand.Seed(time.Now().UnixNano())
 		result = gacha_base[rand.Intn(len(gacha_base))]
 		is_new, err = checkIsNew(&result, req.UserId, db)
 		if err != nil {

@@ -15,13 +15,13 @@ func HandleUserGet(db *sql.DB, cli *redis.Client) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		user_data, err := getUserData(db, cli, request)
 		if err != nil {
-			putError(writer, err)
+			putError(writer, err, http.StatusInternalServerError)
 			return
 		}
 
 		jsondata, err := json.Marshal(&user_data)
 		if err != nil {
-			putError(writer, err)
+			putError(writer, err, http.StatusInternalServerError)
 			return
 		}
 		log.Print("User Get Successed")

@@ -28,14 +28,14 @@ func Serve(addr string) {
 		Password: "",
 		DB: 0,
 	})
-	cli.FlushDB()
+	if err = cli.Del(cache.Item_key).Err(); err != nil {
+		log.Fatal("Cache Initialization failed: ", err)
+	}
 
 	err = cacheMasterData(db, cli)
 	if err != nil {
-		log.Fatal("Cache failed: ", err)
+		log.Fatal("Caching failed: ", err)
 	}
-	/* for debug */
-	cache.PushScore("wyNzSIgz", 100, cli)
 
 	/* ===== URLマッピングを行う ===== */
 	mappingURL(db, cli)

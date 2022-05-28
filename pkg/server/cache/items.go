@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	item_key string = "items"
+	Item_key string = "items"
 )
 
 func CacheItems(db *sql.DB, cli *redis.Client) error {
@@ -49,7 +49,7 @@ func pushRows(rows *sql.Rows, cli *redis.Client) error {
 			return err
 		}
 
-		err = cli.RPush(item_key, item_json).Err()
+		err = cli.RPush(Item_key, item_json).Err()
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func GetItems(cli *redis.Client) (*[]ItemData, error) {
 		item ItemData
 	)
 
-	items_jsons, err := cli.LRange(item_key, 0, -1).Result()
+	items_jsons, err := cli.LRange(Item_key, 0, -1).Result()
 	if err != nil {
 		return nil, err
 	}

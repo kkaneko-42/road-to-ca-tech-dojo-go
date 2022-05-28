@@ -13,13 +13,28 @@ const (
 func PushScore(user_id string, score int, cli *redis.Client) error {
 	prev_score_z := cli.ZScore(ranking_key, user_id)
 
-	if prev_score_z != nil && int(prev_score_z.Val()) >= score {
-		return nil
+	// すでにスコアが記録されていた場合
+	if prev_score_z != nil {
+		if int(prev_score_z.Val()) >= score {
+			return nil
+		} else {
+			if err := cli.ZRem(ranking_key, user_id).Err(); err != nil {
+				return err
+			}
+		}
 	}
+
+	// redis serverへ追加
 	err := cli.ZAdd(ranking_key, redis.Z{
 			Score: float64(score),
 			Member: user_id,
 		}).Err()
+	if err != nil {
+		return err
+	}
+
+	// 永続化
+	err = cli.Save().Err()
 	if err != nil {
 		return err
 	}
@@ -43,25 +58,18 @@ func GetUserHighScore(user_id string, cli *redis.Client) (int, error) {
 func GetRanking(start, end int64, cli *redis.Client) (map[string]RankData, error) {
 	var ranking map[string]RankData = map[string]RankData{}
 
-	ranked_users := cli.ZRangeWithScores(ranking_key, start - 1, end - 1).Val()
-	if isEmpty(ranked_users) {
-		return nil, fmt.Errorf("Ranking is empty")
+	ranked_users := cli.ZRevRangeWithScores(ranking_key, start - 1, end - 1)
+	if err := ranked_users.Err(); err != nil {
+		return nil, err
 	}
 
-	for i, user := range ranked_users {
+	for i, user := range ranked_users.Val() {
 		ranking[user.Member.(string)] = RankData{
 			Score: int(user.Score),
-			Rank: i + 1,
+			Rank: int(start) + i,
 		}
 	}
 	return ranking, nil
-}
-
-func isEmpty(ranking []redis.Z) bool {
-	if len(ranking) == 0 {
-		return true
-	}
-	return false
 }
 
 type RankData struct {
