@@ -1,6 +1,15 @@
 version: "3"
 
 services:
+  api-server:
+    build:
+      context: ./api-server
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - 127.0.0.1:8080:8080
+
   redis:
     image: redis:5.0
     ports:

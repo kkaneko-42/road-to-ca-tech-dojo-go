@@ -40,7 +40,7 @@ func Authenticate(nextFunc http.HandlerFunc) http.HandlerFunc {
 func ConfirmToken(req *http.Request) (string, error) {
 
 	/* db接続 */
-	db, err := sql.Open("mysql", "root:ca-tech-dojo@(127.0.0.1:3306)/road_to_ca")
+	db, err := sql.Open("mysql", "root:ca-tech-dojo@(mysql:3306)/road_to_ca")
 	if err != nil {
 		return "", err
 	}

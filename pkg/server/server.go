@@ -15,7 +15,7 @@ import (
 func Serve(addr string) {
 
 	/* ==== DBのOpen ==== */
-	db, err := sql.Open("mysql", "root:ca-tech-dojo@(127.0.0.1:3306)/road_to_ca")
+	db, err := sql.Open("mysql", "root:ca-tech-dojo@(mysql:3306)/road_to_ca")
 	if err != nil {
 		log.Fatal("DB connection failed: ", err)
 		return;
@@ -24,7 +24,7 @@ func Serve(addr string) {
 
 	/* ==== Master dataのキャッシュ ==== */
 	cli := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: "redis:6379",
 		Password: "",
 		DB: 0,
 	})
