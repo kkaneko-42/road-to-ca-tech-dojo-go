@@ -2,8 +2,7 @@ version: "3"
 
 services:
   api-server:
-    build:
-      context: ./api-server
+    build: ./api-server
     depends_on:
       - mysql
       - redis
